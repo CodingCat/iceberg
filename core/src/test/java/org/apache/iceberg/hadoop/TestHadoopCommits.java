@@ -21,19 +21,12 @@ package org.apache.iceberg.hadoop;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.iceberg.AssertHelpers;
-import org.apache.iceberg.BaseTable;
-import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.TableOperations;
-import org.apache.iceberg.UpdateSchema;
+import org.apache.iceberg.*;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
@@ -418,5 +411,30 @@ public class TestHadoopCommits extends HadoopTableTestBase {
 
     List<FileScanTask> tasks = Lists.newArrayList(reloaded.newScan().planFiles());
     Assert.assertEquals("Should scan 1 files", 1, tasks.size());
+  }
+
+  @Test
+  public void testConcurrentUpdate() throws Exception {
+    assertTrue("Should create v1 metadata",
+            version(1).exists() && version(1).isFile());
+    int threadsCount = 30;
+    Thread[] threads = new Thread[threadsCount];
+    for (int i = 0; i < threadsCount; i++) {
+      threads[i] = new Thread(() -> table.newAppend().appendFile(FILE_A).commit());
+    }
+    for (int i = 0; i < threadsCount; i++) {
+      threads[i].start();
+    }
+    for (int i = 0; i < threadsCount; i++) {
+      threads[i].join();
+    }
+    table.refresh();
+    Iterator<Snapshot> itr = table.snapshots().iterator();
+    int cnt = 0;
+    while (itr.hasNext()) {
+      itr.next();
+      cnt++;
+    };
+    System.out.println("snapshot counts:" + cnt);
   }
 }

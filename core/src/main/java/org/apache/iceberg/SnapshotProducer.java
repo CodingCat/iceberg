@@ -272,7 +272,7 @@ abstract class SnapshotProducer<ThisT> implements SnapshotUpdate<ThisT> {
     AtomicLong newSnapshotId = new AtomicLong(-1L);
     try {
       Tasks.foreach(ops)
-          .retry(base.propertyAsInt(COMMIT_NUM_RETRIES, COMMIT_NUM_RETRIES_DEFAULT))
+          .retry(base.propertyAsInt(COMMIT_NUM_RETRIES, 1000))
           .exponentialBackoff(
               base.propertyAsInt(COMMIT_MIN_RETRY_WAIT_MS, COMMIT_MIN_RETRY_WAIT_MS_DEFAULT),
               base.propertyAsInt(COMMIT_MAX_RETRY_WAIT_MS, COMMIT_MAX_RETRY_WAIT_MS_DEFAULT),
@@ -292,6 +292,7 @@ abstract class SnapshotProducer<ThisT> implements SnapshotUpdate<ThisT> {
             if (updated == base) {
               // do not commit if the metadata has not changed. for example, this may happen when setting the current
               // snapshot to an ID that is already current. note that this check uses identity.
+              System.out.println("shit! I am here");
               return;
             }
 

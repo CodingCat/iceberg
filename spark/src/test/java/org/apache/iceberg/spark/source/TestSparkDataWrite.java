@@ -21,17 +21,11 @@ package org.apache.iceberg.spark.source;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.iceberg.DataFile;
-import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.ManifestFile;
-import org.apache.iceberg.ManifestFiles;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.TableProperties;
+import org.apache.iceberg.*;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
@@ -76,6 +70,7 @@ public abstract class TestSparkDataWrite {
   @BeforeClass
   public static void startSpark() {
     TestSparkDataWrite.spark = SparkSession.builder().master("local[2]").getOrCreate();
+    TestSparkDataWrite.spark.sparkContext().setLogLevel("ERROR");
   }
 
   @AfterClass
@@ -138,6 +133,63 @@ public abstract class TestSparkDataWrite {
         }
       }
     }
+  }
+
+  @Test
+  public void testConcurrentAppend() throws IOException {
+    File parent = temp.newFolder(format.toString());
+    File location = new File(parent, "test");
+
+    HadoopTables tables = new HadoopTables(CONF);
+    Table table = tables.create(SCHEMA, location.toString());
+
+    List<SimpleRecord> records = Lists.newArrayList(
+            new SimpleRecord(1, "a"),
+            new SimpleRecord(2, "b"),
+            new SimpleRecord(3, "c")
+    );
+
+    Dataset<Row> df = spark.createDataFrame(records, SimpleRecord.class);
+    int threadsCount = 10;
+    Thread[] threads = new Thread[threadsCount];
+    for (int i = 0; i < threadsCount; i++) {
+      threads[i] = new Thread() {
+        public void run() {
+          try {
+            df.select("id", "data").write()
+                    .format("iceberg")
+                    .option(SparkWriteOptions.WRITE_FORMAT, format.toString())
+                    .mode(SaveMode.Append)
+                    .save(location.toString());
+          } catch (Exception e) {
+            System.out.println("========");
+            e.printStackTrace();
+          }
+        }
+      };
+      threads[i].start();
+    }
+    for (int i = 0; i < threadsCount; i++) {
+      try {
+        threads[i].join();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    table.refresh();
+    Iterator<Snapshot> itr = table.snapshots().iterator();
+    int cnt = 0;
+    while (itr.hasNext()) {
+      itr.next();
+      cnt++;
+    }
+    Assert.assertEquals(cnt, threadsCount);
+    Dataset<Row> result = spark.read()
+            .format("iceberg")
+            .load(location.toString());
+
+    List<SimpleRecord> actual = result.orderBy("id").as(Encoders.bean(SimpleRecord.class)).collectAsList();
+    Assert.assertEquals("Number of rows should match", 3 * threadsCount, actual.size());
   }
 
   @Test
