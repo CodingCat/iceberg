@@ -20,11 +20,14 @@
 package org.apache.iceberg.hadoop;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.hadoop.conf.Configuration;
@@ -165,6 +168,7 @@ public class HadoopTableOperations implements TableOperations {
     renameToFinal(fs, tempMetadataFile, finalMetadataFile);
 
     // update the best-effort version pointer
+    System.out.println(Thread.currentThread().getName() + " writing version file for " + nextVersion);
     writeVersionHint(nextVersion);
 
     deleteRemovedMetadataFiles(base, metadata);
@@ -312,7 +316,6 @@ public class HadoopTableOperations implements TableOperations {
   int findVersion() {
     Path versionHintFile = versionHintFile();
     FileSystem fs = Util.getFs(versionHintFile, conf);
-
     try (InputStreamReader fsr = new InputStreamReader(fs.open(versionHintFile), StandardCharsets.UTF_8);
          BufferedReader in = new BufferedReader(fsr)) {
       return Integer.parseInt(in.readLine().replace("\n", ""));
@@ -355,7 +358,8 @@ public class HadoopTableOperations implements TableOperations {
    */
   private void renameToFinal(FileSystem fs, Path src, Path dst) {
     try {
-      if (!fs.rename(src, dst)) {
+      HadoopTableOperations.lock.lock();
+      if (fs.exists(dst) || !fs.rename(src, dst)) {
         CommitFailedException cfe = new CommitFailedException(
             "Failed to commit changes using rename: %s", dst);
         RuntimeException re = tryDelete(src);
@@ -372,6 +376,8 @@ public class HadoopTableOperations implements TableOperations {
         cfe.addSuppressed(re);
       }
       throw cfe;
+    } finally {
+      HadoopTableOperations.lock.unlock();
     }
   }
 
@@ -429,4 +435,6 @@ public class HadoopTableOperations implements TableOperations {
     }
     return newMetadata;
   }
+
+  public static Lock lock = new ReentrantLock();
 }

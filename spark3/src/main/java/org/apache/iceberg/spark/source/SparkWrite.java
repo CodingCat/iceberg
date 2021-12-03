@@ -200,7 +200,7 @@ class SparkWrite {
     long start = System.currentTimeMillis();
     operation.commit(); // abort is automatically called if this fails
     long duration = System.currentTimeMillis() - start;
-    LOG.info("Committed in {} ms", duration);
+    LOG.info("{} Committed in {} ms", Thread.currentThread().getName(), duration);
   }
 
   private void abort(WriterCommitMessage[] messages) {

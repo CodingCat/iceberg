@@ -21,6 +21,7 @@ package org.apache.iceberg.spark.source;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -84,6 +85,7 @@ public abstract class TestSparkDataWrite {
     this.format = FileFormat.valueOf(format.toUpperCase(Locale.ENGLISH));
   }
 
+  /*
   @Test
   public void testBasicWrite() throws IOException {
     File parent = temp.newFolder(format.toString());
@@ -133,7 +135,7 @@ public abstract class TestSparkDataWrite {
         }
       }
     }
-  }
+  }*/
 
   @Test
   public void testConcurrentAppend() throws IOException {
@@ -141,7 +143,9 @@ public abstract class TestSparkDataWrite {
     File location = new File(parent, "test");
 
     HadoopTables tables = new HadoopTables(CONF);
-    Table table = tables.create(SCHEMA, location.toString());
+    HashMap properties = new HashMap<String, String>();
+    properties.put(TableProperties.COMMIT_NUM_RETRIES, "1000");
+    Table table = tables.create(SCHEMA, null, properties, location.toString());
 
     List<SimpleRecord> records = Lists.newArrayList(
             new SimpleRecord(1, "a"),
@@ -153,20 +157,18 @@ public abstract class TestSparkDataWrite {
     int threadsCount = 10;
     Thread[] threads = new Thread[threadsCount];
     for (int i = 0; i < threadsCount; i++) {
-      threads[i] = new Thread() {
-        public void run() {
-          try {
-            df.select("id", "data").write()
-                    .format("iceberg")
-                    .option(SparkWriteOptions.WRITE_FORMAT, format.toString())
-                    .mode(SaveMode.Append)
-                    .save(location.toString());
-          } catch (Exception e) {
-            System.out.println("========");
-            e.printStackTrace();
-          }
+      threads[i] = new Thread(() -> {
+        try {
+          df.select("id", "data").write()
+                  .format("iceberg")
+                  .option(SparkWriteOptions.WRITE_FORMAT, format.toString())
+                  .mode(SaveMode.Append)
+                  .save(location.toString());
+        } catch (Exception e) {
+          System.out.println("========");
+          e.printStackTrace();
         }
-      };
+      });
       threads[i].start();
     }
     for (int i = 0; i < threadsCount; i++) {
@@ -177,13 +179,20 @@ public abstract class TestSparkDataWrite {
       }
     }
     table.refresh();
-    Iterator<Snapshot> itr = table.snapshots().iterator();
+    File[] files = new File(location.getAbsolutePath() + "/metadata").listFiles();
+    for (int i = 0; i < files.length; i++) {
+      String p = files[i].getAbsolutePath();
+      if (files[i].getName().startsWith("v") && files[i].getName().endsWith(".json")) {
+        System.out.println(p);
+      }
+    }
+    Iterator<Snapshot> itr = tables.load(location.toString()).snapshots().iterator();
     int cnt = 0;
     while (itr.hasNext()) {
-      itr.next();
+      System.out.println(itr.next().snapshotId());
       cnt++;
     }
-    Assert.assertEquals(cnt, threadsCount);
+    Assert.assertEquals(threadsCount, cnt);
     Dataset<Row> result = spark.read()
             .format("iceberg")
             .load(location.toString());
@@ -192,6 +201,7 @@ public abstract class TestSparkDataWrite {
     Assert.assertEquals("Number of rows should match", 3 * threadsCount, actual.size());
   }
 
+  /*
   @Test
   public void testAppend() throws IOException {
     File parent = temp.newFolder(format.toString());
@@ -642,7 +652,7 @@ public abstract class TestSparkDataWrite {
       Assert.assertEquals("Should have 8 DataFiles", 8, files.size());
       Assert.assertTrue("All DataFiles contain 1000 rows", files.stream().allMatch(d -> d.recordCount() == 1000));
     }
-  }
+  }*/
 
   public enum IcebergOptionsType {
     NONE,

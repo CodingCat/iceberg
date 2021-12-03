@@ -83,6 +83,10 @@ public class HadoopTables implements Tables, Configurable {
     } else {
       // Load a normal table
       TableOperations ops = newTableOps(location);
+      if (ops.current().currentSnapshot() != null) {
+        System.out.println(ops.current().currentSnapshot().snapshotId());
+        System.out.println(ops.current().snapshots().size());
+      }
       if (ops.current() != null) {
         result = new BaseTable(ops, location);
       } else {

@@ -417,10 +417,23 @@ public class TestHadoopCommits extends HadoopTableTestBase {
   public void testConcurrentUpdate() throws Exception {
     assertTrue("Should create v1 metadata",
             version(1).exists() && version(1).isFile());
+    /**
+     * this.tableDir = temp.newFolder();
+     *     tableDir.delete(); // created by table create
+     *
+     *     this.tableLocation = tableDir.toURI().toString();
+     *     this.metadataDir = new File(tableDir, "metadata");
+     *     this.versionHintFile = new File(metadataDir, "version-hint.text");
+     *     this.table = TABLES.create(SCHEMA, SPEC, tableLocation);
+     */
+    File tableDir = temp.newFolder();
+    tableDir.delete();
+    String loc = tableDir.toURI().toString();
+    Table t = TABLES.create(SCHEMA, loc);
     int threadsCount = 30;
     Thread[] threads = new Thread[threadsCount];
     for (int i = 0; i < threadsCount; i++) {
-      threads[i] = new Thread(() -> table.newAppend().appendFile(FILE_A).commit());
+      threads[i] = new Thread(() -> t.newAppend().appendFile(FILE_A).commit());
     }
     for (int i = 0; i < threadsCount; i++) {
       threads[i].start();
@@ -428,13 +441,13 @@ public class TestHadoopCommits extends HadoopTableTestBase {
     for (int i = 0; i < threadsCount; i++) {
       threads[i].join();
     }
-    table.refresh();
-    Iterator<Snapshot> itr = table.snapshots().iterator();
+    t.refresh();
+    Iterator<Snapshot> itr = t.snapshots().iterator();
     int cnt = 0;
     while (itr.hasNext()) {
       itr.next();
       cnt++;
     };
-    System.out.println("snapshot counts:" + cnt);
+    assertEquals(threadsCount, cnt);
   }
 }
