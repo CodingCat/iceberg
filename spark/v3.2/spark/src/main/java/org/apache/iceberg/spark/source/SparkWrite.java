@@ -365,7 +365,6 @@ abstract class SparkWrite implements Write, RequiresDistributionAndOrdering {
       if (scanSnapshotId != null) {
         overwriteFiles.validateFromSnapshot(scanSnapshotId);
       }
-
       Expression conflictDetectionFilter = conflictDetectionFilter();
       overwriteFiles.conflictDetectionFilter(conflictDetectionFilter);
       overwriteFiles.validateNoConflictingData();

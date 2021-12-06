@@ -283,6 +283,50 @@ public class TestSparkDataWrite {
   }
 
   @Test
+  public void testOverwriteWithUncompatibleSchema() throws IOException {
+    File parent = temp.newFolder(format.toString());
+    File location = new File(parent, "test");
+
+    HadoopTables tables = new HadoopTables(CONF);
+    PartitionSpec spec = PartitionSpec.unpartitioned();
+    Table table = tables.create(SCHEMA, spec, location.toString());
+
+    List<SimpleRecord> expected = Lists.newArrayList(
+            new SimpleRecord(1, "a"),
+            new SimpleRecord(2, "b"),
+            new SimpleRecord(3, "c")
+    );
+
+    Dataset<Row> df = spark.createDataFrame(expected, SimpleRecord.class);
+
+    df.select("id", "data").write()
+            .format("iceberg")
+            .option(SparkWriteOptions.WRITE_FORMAT, format.toString())
+            .mode(SaveMode.Append)
+            .save(location.toString());
+
+    // overwrite with the same data; should not produce two copies
+    df.select("id", "data")
+            .withColumnRenamed("id", "id_renamed")
+            .withColumnRenamed("data", "data_renamed")
+            .write()
+            .format("iceberg")
+            .option(SparkWriteOptions.WRITE_FORMAT, format.toString())
+            .mode(SaveMode.Overwrite)
+            .save(location.toString());
+
+    table.refresh();
+
+    Dataset<Row> result = spark.read()
+            .format("iceberg")
+            .load(location.toString());
+
+    List<Row> actual = result.orderBy("id_renamed").collectAsList();
+    Assert.assertEquals("Number of rows should match", expected.size(), actual.size());
+    // Assert.assertEquals("Result rows should match", expected, actual);
+  }
+
+  @Test
   public void testUnpartitionedOverwrite() throws IOException {
     File parent = temp.newFolder(format.toString());
     File location = new File(parent, "test");
