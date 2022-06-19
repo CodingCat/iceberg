@@ -148,8 +148,6 @@ class IcebergSparkSqlExtensionsParser(delegate: ParserInterface) extends ParserI
       // see ResolveMergeIntoTableReferences for details
       val context = MergeIntoContext(cond, matchedActions, notMatchedActions)
       UnresolvedMergeIntoIcebergTable(aliasedTable, source, context)
-    case x =>
-      x
   }
 
   object UnresolvedIcebergTable {

@@ -93,16 +93,12 @@ case class ResolveMergeIntoTableReferences(spark: SparkSession) extends Rule[Log
 
       val resolvedMergeCondition = resolveCond("SEARCH", context.mergeCondition, m)
 
-      val x = MergeIntoIcebergTable(
+      MergeIntoIcebergTable(
         targetTable,
         sourceTable,
         mergeCondition = resolvedMergeCondition,
         matchedActions = resolvedMatchedActions,
         notMatchedActions = resolvedNotMatchedActions)
-      x
-
-    case m @ UnresolvedMergeIntoIcebergTable(targetTable, sourceTable, context) =>
-      m
   }
 
   private def resolveCond(condName: String, cond: Expression, plan: LogicalPlan): Expression = {

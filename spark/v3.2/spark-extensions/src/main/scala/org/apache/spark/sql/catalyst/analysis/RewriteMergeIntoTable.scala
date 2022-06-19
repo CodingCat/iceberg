@@ -229,8 +229,7 @@ object RewriteMergeIntoTable extends RewriteRowLevelCommand {
 
     // build a plan to replace read groups in the table
     val writeRelation = relation.copy(table = operationTable)
-    val r = ReplaceData(writeRelation, mergeRows, relation)
-    r
+    ReplaceData(writeRelation, mergeRows, relation)
   }
 
   // build a rewrite plan for sources that support row deltas

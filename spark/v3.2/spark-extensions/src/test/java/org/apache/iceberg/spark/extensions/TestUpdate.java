@@ -84,11 +84,6 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     spark.conf().set("spark.sql.shuffle.partitions", "4");
   }
 
-  @Before
-  public void cleanup() {
-    sql("DROP TABLE IF EXISTS %s", tableName);
-  }
-
   @After
   public void removeTables() {
     sql("DROP TABLE IF EXISTS %s", tableName);
