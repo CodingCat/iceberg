@@ -147,6 +147,23 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
   }*/
 
   @Test
+  public void testHadoopTables2() throws Exception {
+    createAndInitTable("id INT");
+    List<Integer> ids = Lists.newArrayListWithCapacity(2);
+    for (int id = 1; id <= 2; id++) {
+      ids.add(id);
+    }
+    Dataset<Row> df = spark.createDataset(ids, Encoders.INT())
+            .withColumnRenamed("value", "id");
+    df.createOrReplaceTempView("source");
+    sql("INSERT INTO %s VALUES (1), (2)", tableName);
+    sql("MERGE INTO %s using source on %s.id = source.id " +
+            "WHEN MATCHED THEN UPDATE SET %s.id = source.id + 1", tableName, tableName, tableName);
+    spark.read().table("table").show();
+  }
+
+  /*
+  @Test
   public void testHadoopTables() throws Exception {
     List<Integer> ids = Lists.newArrayListWithCapacity(2);
     for (int id = 1; id <= 2; id++) {
@@ -175,8 +192,9 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     while (plans.hasNext()) {
       System.out.println(plans.next().treeString());
     }*/
+  /*
     sql("MERGE INTO target using source on target.id = source.id " +
-            "WHEN MATCHED THEN UPDATE SET target.id = target.id + 1");
+            "WHEN MATCHED THEN UPDATE SET target.id = source.id + 1");
     spark.read().format("iceberg").load(path).show();
     /*
     for (int i = 0; i < analyzed.children().size(); i++) {
@@ -186,7 +204,7 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
                 replaceData.outputResolved());
       }
     }*/
-  }
+  //}
 
   /*
   @Test

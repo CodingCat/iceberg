@@ -157,17 +157,13 @@ object RewriteMergeIntoTable extends RewriteRowLevelCommand {
       tbl: SupportsRowLevelOperations): MergeIntoIcebergTable = {
     val operation = buildRowLevelOperation(tbl, MERGE)
     val table = RowLevelOperationTable(tbl, operation)
-    val replacedSourceTable = EliminateSubqueryAliases(m.sourceTable) match {
-      case v: View if v.isTempViewStoringAnalyzedPlan => v.child
-      case other => other
-    }
     val rewritePlan = operation match {
       case _: SupportsDelta =>
-        buildWriteDeltaPlan(r, table, replacedSourceTable, m.mergeCondition, m.matchedActions, m.notMatchedActions)
+        buildWriteDeltaPlan(r, table, m.sourceTable, m.mergeCondition, m.matchedActions, m.notMatchedActions)
       case _ =>
-        buildReplaceDataPlan(r, table, replacedSourceTable, m.mergeCondition, m.matchedActions, m.notMatchedActions)
+        buildReplaceDataPlan(r, table, m.sourceTable, m.mergeCondition, m.matchedActions, m.notMatchedActions)
     }
-    m.copy(sourceTable = replacedSourceTable, rewritePlan = Some(rewritePlan))
+    m.copy(rewritePlan = Some(rewritePlan))
   }
 
   // build a rewrite plan for sources that support replacing groups of data (e.g. files, partitions)
