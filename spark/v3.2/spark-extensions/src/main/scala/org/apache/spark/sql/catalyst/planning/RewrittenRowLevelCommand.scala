@@ -66,7 +66,6 @@ object RewrittenRowLevelCommand {
         case _ =>
           None
       }
-
     case _ =>
       None
   }

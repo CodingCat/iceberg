@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.spark.extensions;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -29,13 +30,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.iceberg.AssertHelpers;
-import org.apache.iceberg.DataFile;
-import org.apache.iceberg.RowLevelOperationMode;
-import org.apache.iceberg.Snapshot;
-import org.apache.iceberg.SnapshotSummary;
-import org.apache.iceberg.Table;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.iceberg.*;
 import org.apache.iceberg.exceptions.ValidationException;
+import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
@@ -43,19 +42,20 @@ import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.relocated.com.google.common.util.concurrent.MoreExecutors;
 import org.apache.iceberg.spark.SparkSQLProperties;
+import org.apache.iceberg.spark.SparkSchemaUtil;
 import org.apache.spark.SparkException;
 import org.apache.spark.sql.AnalysisException;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException;
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
+import org.apache.spark.sql.catalyst.plans.logical.ReplaceData;
+import org.apache.spark.sql.execution.SparkPlan;
 import org.apache.spark.sql.internal.SQLConf;
+import org.apache.spark.sql.types.StructType;
 import org.hamcrest.CoreMatchers;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
 import static org.apache.iceberg.DataOperations.OVERWRITE;
 import static org.apache.iceberg.RowLevelOperationMode.COPY_ON_WRITE;
@@ -68,6 +68,9 @@ import static org.apache.iceberg.TableProperties.UPDATE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE_DEFAULT;
 import static org.apache.spark.sql.functions.lit;
+
+import scala.collection.Iterator;
+import scala.collection.JavaConverters.*;
 
 public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
 
@@ -135,6 +138,30 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     assertEquals("Should have expected rows",
         ImmutableList.of(row(1, "invalid")),
         sql("SELECT * FROM %s", tableName));
+  }
+
+  @Test
+  public void testHadoopTables() throws Exception {
+    List<Integer> ids = Lists.newArrayListWithCapacity(2);
+    for (int id = 1; id <= 2; id++) {
+      ids.add(id);
+    }
+    Dataset<Row> df = spark.createDataset(ids, Encoders.INT())
+            .withColumnRenamed("value", "id");
+    HadoopTables ht = new HadoopTables(spark.sparkContext().hadoopConfiguration());
+    Schema tableSchema = SparkSchemaUtil.convert(df.schema());
+    File dir = java.nio.file.Files.createTempDirectory("TestUpdate").toFile();
+    FileUtils.forceDeleteOnExit(dir);
+    String path = dir.getAbsolutePath();
+    ht.create(tableSchema, path);
+    df.write().format("iceberg").mode("overwrite").save(path);
+    Dataset<Row> tableDF = spark.read().format("iceberg").load(path);
+    tableDF.createOrReplaceTempView("target");
+    df.createOrReplaceTempView("source");
+    spark.sql("select * from source").show();
+    sql("MERGE INTO target using source on target.id = source.id " +
+            "WHEN MATCHED THEN UPDATE SET target.id = source.id + 1");
+    spark.read().format("iceberg").load(path).show();
   }
 
   @Test
