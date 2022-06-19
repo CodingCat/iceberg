@@ -139,27 +139,6 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
         ImmutableList.of(row(1, "invalid")),
         sql("SELECT * FROM %s", tableName));
   }
-/*
-  @Test
-  public void testHadoopTables2() throws Exception {
-    createAndInitTable("id INT");
-    List<Integer> ids = Lists.newArrayListWithCapacity(2);
-    for (int id = 1; id <= 2; id++) {
-      ids.add(id);
-    }
-    Dataset<Row> df = spark.createDataset(ids, Encoders.INT())
-            .withColumnRenamed("value", "id");
-    df.createOrReplaceTempView("source");
-    sql("INSERT INTO %s VALUES (1), (2)", tableName);
-    sql("MERGE INTO %s using source on %s.id = source.id " +
-            "WHEN MATCHED THEN UPDATE SET %s.id = source.id + 1", tableName, tableName, tableName);
-    List<Object[]> list = sql("select * from %s", tableName);
-    for (int i = 0; i < list.size(); i++) {
-      for (int j = 0; j < list.get(i).length; j++) {
-        System.out.println(list.get(i)[j]);
-      }
-    }
-  }*/
 
   @Test
   public void testHadoopTables() throws Exception {
@@ -172,7 +151,7 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     HadoopTables ht = new HadoopTables(spark.sparkContext().hadoopConfiguration());
     Schema tableSchema = SparkSchemaUtil.convert(df.schema());
     File dir = java.nio.file.Files.createTempDirectory("TestUpdate").toFile();
-    // FileUtils.forceDeleteOnExit(dir);
+    FileUtils.forceDeleteOnExit(dir);
     String path = dir.getAbsolutePath();
     ht.create(tableSchema, path);
     df.write().format("iceberg").mode("overwrite").save(path);
@@ -180,28 +159,9 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     tableDF.createOrReplaceTempView("target");
     df.createOrReplaceTempView("source");
     spark.sql("select * from source").show();
-    /*
-    LogicalPlan parsed = spark.sessionState().sqlParser().parsePlan(
-            "MERGE INTO target using source on target.id = source.id" +
-            " WHEN MATCHED THEN UPDATE SET target.id = target.id + 1 WHEN NOT MATCHED THEN INSERT *");
-    LogicalPlan analyzed = spark.sessionState().analyzer().execute(parsed);
-    LogicalPlan optimized = spark.sessionState().optimizer().execute(analyzed);
-    Iterator<SparkPlan> plans = spark.sessionState().planner().plan(optimized);
-    while (plans.hasNext()) {
-      System.out.println(plans.next().treeString());
-    }*/
-
     sql("MERGE INTO target using source on target.id = source.id " +
             "WHEN MATCHED THEN UPDATE SET target.id = source.id + 1");
     spark.read().format("iceberg").load(path).show();
-    /*
-    for (int i = 0; i < analyzed.children().size(); i++) {
-      if (analyzed.children().apply(i) instanceof ReplaceData) {
-        ReplaceData replaceData = (ReplaceData) analyzed.children().apply(i);
-        System.out.println(((LogicalPlan) replaceData.table()).resolved() + ":::" + replaceData.query().resolved() + ":::" +
-                replaceData.outputResolved());
-      }
-    }*/
   }
 
   @Test
