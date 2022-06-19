@@ -92,7 +92,6 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     sql("DROP TABLE IF EXISTS deleted_employee");
   }
 
-  /*
   @Test
   public void testExplain() {
     createAndInitTable("id INT, dep STRING");
@@ -139,7 +138,7 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     assertEquals("Should have expected rows",
         ImmutableList.of(row(1, "invalid")),
         sql("SELECT * FROM %s", tableName));
-  }*/
+  }
 /*
   @Test
   public void testHadoopTables2() throws Exception {
@@ -205,7 +204,6 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     }*/
   }
 
-  /*
   @Test
   public void testUpdateAlignsAssignments() {
     createAndInitTable("id INT, c1 INT, c2 INT");
@@ -1062,7 +1060,7 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
         UnsupportedOperationException.class, "not supported temporarily",
         () -> sql("UPDATE %s SET c1 = -1 WHERE c2 = 1", "testtable"));
   }
-*/
+
   private RowLevelOperationMode mode(Table table) {
     String modeName = table.properties().getOrDefault(UPDATE_MODE, UPDATE_MODE_DEFAULT);
     return RowLevelOperationMode.fromName(modeName);
