@@ -140,7 +140,7 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
         ImmutableList.of(row(1, "invalid")),
         sql("SELECT * FROM %s", tableName));
   }*/
-
+/*
   @Test
   public void testHadoopTables2() throws Exception {
     createAndInitTable("id INT");
@@ -160,9 +160,8 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
         System.out.println(list.get(i)[j]);
       }
     }
-  }
+  }*/
 
-  /*
   @Test
   public void testHadoopTables() throws Exception {
     List<Integer> ids = Lists.newArrayListWithCapacity(2);
@@ -192,7 +191,7 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     while (plans.hasNext()) {
       System.out.println(plans.next().treeString());
     }*/
-  /*
+
     sql("MERGE INTO target using source on target.id = source.id " +
             "WHEN MATCHED THEN UPDATE SET target.id = source.id + 1");
     spark.read().format("iceberg").load(path).show();
@@ -204,7 +203,7 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
                 replaceData.outputResolved());
       }
     }*/
-  //}
+  }
 
   /*
   @Test

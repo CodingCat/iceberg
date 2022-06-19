@@ -167,20 +167,17 @@ class IcebergSparkSqlExtensionsParser(delegate: ParserInterface) extends ParserI
         case tableCatalog: TableCatalog =>
           Try(tableCatalog.loadTable(catalogAndIdentifier.identifier))
             .map(isIcebergTable)
-            .getOrElse(false)
+            .getOrElse(SparkSession.active.table(s"${multipartIdent.mkString(".")}").queryExecution
+              .executedPlan.collect {
+              case BatchScanExec(_, scan, _) if scan.isInstanceOf[SparkBatchQueryScan] =>
+                val ht = new HadoopTables(SparkSession.active.sparkContext.hadoopConfiguration)
+                ht.exists(scan.asInstanceOf[SparkBatchQueryScan].tableScan().table().location())
+            }.contains(true))
         case _ =>
           false
       }
     }
 
-    /**
-     * SparkSession.active.table(s"${multipartIdent.mkString(".")}").queryExecution
-              .executedPlan.collect {
-              case BatchScanExec(_, scan, _) if scan.isInstanceOf[SparkBatchQueryScan] =>
-                val ht = new HadoopTables(SparkSession.active.sparkContext.hadoopConfiguration)
-                ht.exists(scan.asInstanceOf[SparkBatchQueryScan].tableScan().table().location())
-            }.contains(true)
-     */
     private def isIcebergTable(table: Table): Boolean = table match {
       case _: SparkTable => true
       case _ => false
