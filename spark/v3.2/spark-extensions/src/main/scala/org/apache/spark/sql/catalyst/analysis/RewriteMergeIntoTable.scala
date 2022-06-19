@@ -127,11 +127,20 @@ object RewriteMergeIntoTable extends RewriteRowLevelCommand {
           throw new AnalysisException(s"$p is not an Iceberg table")
       }
 
-    case m @ MergeIntoIcebergTable(aliasedTable, _, _, _, _, None)
+    case m @ MergeIntoIcebergTable(aliasedTable,source, cond, matchedActions, notMatchedActions, None)
         if m.resolved && m.aligned =>
       EliminateSubqueryAliases(aliasedTable) match {
-        case r @ DataSourceV2Relation(tbl: SupportsRowLevelOperations, _, _, _, _) =>
-          rewriteIcebergRelation(m, r, tbl)
+        case r@DataSourceV2Relation(tbl: SupportsRowLevelOperations, _, _, _, _) =>
+          val operation = buildRowLevelOperation(tbl, MERGE)
+          val table = RowLevelOperationTable(tbl, operation)
+          val rewritePlan = operation match {
+            case _: SupportsDelta =>
+              buildWriteDeltaPlan(r, table, source, cond, matchedActions, notMatchedActions)
+            case _ =>
+              buildReplaceDataPlan(r, table, source, cond, matchedActions, notMatchedActions)
+          }
+          m.copy(rewritePlan = Some(rewritePlan))
+        /*
         case p: View =>
           val relations = p.children.collect { case r: DataSourceV2Relation if r.table.isInstanceOf[SparkTable] =>
             r
@@ -145,10 +154,11 @@ object RewriteMergeIntoTable extends RewriteRowLevelCommand {
             newM
           } else {
             throw new AnalysisException(s"$p is not an Iceberg table")
-          }
+          }*/
         case p =>
           throw new AnalysisException(s"$p is not an Iceberg table")
       }
+
   }
 
   private def rewriteIcebergRelation(

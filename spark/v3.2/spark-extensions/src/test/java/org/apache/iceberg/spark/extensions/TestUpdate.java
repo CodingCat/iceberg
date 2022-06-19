@@ -154,7 +154,12 @@ public abstract class TestUpdate extends SparkRowLevelOperationsTestBase {
     sql("INSERT INTO %s VALUES (1), (2)", tableName);
     sql("MERGE INTO %s using source on %s.id = source.id " +
             "WHEN MATCHED THEN UPDATE SET %s.id = source.id + 1", tableName, tableName, tableName);
-    spark.read().table("table").show();
+    List<Object[]> list = sql("select * from %s", tableName);
+    for (int i = 0; i < list.size(); i++) {
+      for (int j = 0; j < list.get(i).length; j++) {
+        System.out.println(list.get(i)[j]);
+      }
+    }
   }
 
   /*
