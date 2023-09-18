@@ -80,8 +80,9 @@ public abstract class TestDelete extends SparkRowLevelOperationsTestBase {
       Map<String, String> config,
       String fileFormat,
       Boolean vectorized,
-      String distributionMode) {
-    super(catalogName, implementation, config, fileFormat, vectorized, distributionMode);
+      String distributionMode,
+      String branch) {
+    super(catalogName, implementation, config, fileFormat, vectorized, distributionMode, branch);
   }
 
   @BeforeClass

@@ -39,6 +39,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.util.concurrent.MoreExecutors;
 import org.apache.iceberg.spark.Spark3Util;
+import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.spark.sql.Encoders;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -53,8 +54,9 @@ public class TestCopyOnWriteMerge extends TestMerge {
       Map<String, String> config,
       String fileFormat,
       boolean vectorized,
-      String distributionMode) {
-    super(catalogName, implementation, config, fileFormat, vectorized, distributionMode);
+      String distributionMode,
+      String branch) {
+    super(catalogName, implementation, config, fileFormat, vectorized, distributionMode, branch);
   }
 
   @Override
@@ -77,6 +79,7 @@ public class TestCopyOnWriteMerge extends TestMerge {
         tableName, MERGE_ISOLATION_LEVEL, "snapshot");
 
     sql("INSERT INTO TABLE %s VALUES (1, 'hr')", tableName);
+    createBranchIfNeeded();
 
     Table table = Spark3Util.loadIcebergTable(spark, tableName);
 

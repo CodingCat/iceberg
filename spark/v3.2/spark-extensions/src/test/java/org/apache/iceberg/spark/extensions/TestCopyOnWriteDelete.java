@@ -30,6 +30,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Table;
@@ -39,6 +40,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.util.concurrent.MoreExecutors;
 import org.apache.iceberg.spark.Spark3Util;
+import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.spark.sql.Encoders;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -53,8 +55,9 @@ public class TestCopyOnWriteDelete extends TestDelete {
       Map<String, String> config,
       String fileFormat,
       Boolean vectorized,
-      String distributionMode) {
-    super(catalogName, implementation, config, fileFormat, vectorized, distributionMode);
+      String distributionMode,
+      String branch) {
+    super(catalogName, implementation, config, fileFormat, vectorized, distributionMode, branch);
   }
 
   @Override
@@ -77,6 +80,7 @@ public class TestCopyOnWriteDelete extends TestDelete {
         tableName, DELETE_ISOLATION_LEVEL, "snapshot");
 
     sql("INSERT INTO TABLE %s VALUES (1, 'hr')", tableName);
+    createBranchIfNeeded();
 
     Table table = Spark3Util.loadIcebergTable(spark, tableName);
 
@@ -96,7 +100,7 @@ public class TestCopyOnWriteDelete extends TestDelete {
                   sleep(10);
                 }
 
-                sql("DELETE FROM %s WHERE id IN (SELECT * FROM deleted_id)", tableName);
+                sql("DELETE FROM %s WHERE id IN (SELECT * FROM deleted_id)", commitTarget());
 
                 barrier.incrementAndGet();
               }
@@ -106,7 +110,7 @@ public class TestCopyOnWriteDelete extends TestDelete {
     Future<?> appendFuture =
         executorService.submit(
             () -> {
-              GenericRecord record = GenericRecord.create(table.schema());
+              GenericRecord record = GenericRecord.create(SnapshotUtil.schemaFor(table, branch));
               record.set(0, 1); // id
               record.set(1, "hr"); // dep
 
@@ -121,7 +125,11 @@ public class TestCopyOnWriteDelete extends TestDelete {
 
                 for (int numAppends = 0; numAppends < 5; numAppends++) {
                   DataFile dataFile = writeDataFile(table, ImmutableList.of(record));
-                  table.newFastAppend().appendFile(dataFile).commit();
+                  AppendFiles appendFiles = table.newFastAppend().appendFile(dataFile);
+                  if (branch != null) {
+                    appendFiles.toBranch(branch);
+                  }
+                  appendFiles.commit();
                   sleep(10);
                 }
 
