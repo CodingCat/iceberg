@@ -47,9 +47,10 @@ class ChangelogRowReader extends BaseRowReader<ChangelogScanTask> {
   ChangelogRowReader(
       Table table,
       ScanTaskGroup<ChangelogScanTask> taskGroup,
+      Schema tableSchema,
       Schema expectedSchema,
       boolean caseSensitive) {
-    super(table, taskGroup, ChangelogUtil.dropChangelogMetadata(expectedSchema), caseSensitive);
+    super(table, taskGroup, tableSchema, ChangelogUtil.dropChangelogMetadata(expectedSchema), caseSensitive);
   }
 
   @Override

@@ -216,6 +216,7 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
       super(
           partition.taskGroup(),
           partition.table(),
+          partition.table().schema(),
           partition.expectedSchema(),
           partition.isCaseSensitive());
 
@@ -242,6 +243,7 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
       super(
           partition.taskGroup(),
           partition.table(),
+          partition.table().schema(),
           partition.expectedSchema(),
           partition.isCaseSensitive(),
           batchSize);

@@ -94,6 +94,10 @@ public class SparkScanBuilder
     this(spark, table, null, schema, options);
   }
 
+  SparkScanBuilder(SparkSession spark, Table table, CaseInsensitiveStringMap options) {
+    this(spark, table, table.schema(), options);
+  }
+
   private Expression filterExpression() {
     if (filterExpressions != null) {
       return filterExpressions.stream().reduce(Expressions.alwaysTrue(), Expressions::and);

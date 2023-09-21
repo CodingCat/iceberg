@@ -42,6 +42,7 @@ class SparkChangelogBatch implements Batch {
 
   private final JavaSparkContext sparkContext;
   private final Table table;
+  private final String branch;
   private final List<ScanTaskGroup<ChangelogScanTask>> taskGroups;
   private final Schema expectedSchema;
   private final boolean caseSensitive;
@@ -62,6 +63,7 @@ class SparkChangelogBatch implements Batch {
     this.caseSensitive = readConf.caseSensitive();
     this.localityEnabled = readConf.localityEnabled();
     this.scanHashCode = scanHashCode;
+    this.branch = readConf.branch();
   }
 
   @Override
@@ -81,6 +83,7 @@ class SparkChangelogBatch implements Batch {
                     new SparkInputPartition(
                         taskGroups.get(index),
                         tableBroadcast,
+                        branch,
                         expectedSchemaString,
                         caseSensitive,
                         localityEnabled));
@@ -131,6 +134,7 @@ class SparkChangelogBatch implements Batch {
       super(
           partition.table(),
           partition.taskGroup(),
+          partition.table().schema(),
           partition.expectedSchema(),
           partition.isCaseSensitive());
     }
