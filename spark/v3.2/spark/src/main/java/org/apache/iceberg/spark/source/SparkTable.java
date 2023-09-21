@@ -33,10 +33,12 @@ import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Partitioning;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.ExpressionUtil;
@@ -116,11 +118,23 @@ public class SparkTable
   private final Long snapshotId;
   private final boolean refreshEagerly;
   private final Set<TableCapability> capabilities;
+  private String branch;
   private StructType lazyTableSchema = null;
   private SparkSession lazySpark = null;
 
   public SparkTable(Table icebergTable, boolean refreshEagerly) {
-    this(icebergTable, null, refreshEagerly);
+    this(icebergTable, (Long) null, refreshEagerly);
+  }
+
+  public SparkTable(Table icebergTable, String branch, boolean refreshEagerly) {
+    this(icebergTable, refreshEagerly);
+    this.branch = branch;
+    ValidationException.check(
+        branch == null
+            || SnapshotRef.MAIN_BRANCH.equals(branch)
+            || icebergTable.snapshot(branch) != null,
+        "Cannot use branch (does not exist): %s",
+        branch);
   }
 
   public SparkTable(Table icebergTable, Long snapshotId, boolean refreshEagerly) {
@@ -379,6 +393,8 @@ public class SparkTable
       scanOptions.putAll(options.asCaseSensitiveMap());
       scanOptions.put(SparkReadOptions.SNAPSHOT_ID, value);
       scanOptions.remove(SparkReadOptions.AS_OF_TIMESTAMP);
+      scanOptions.remove(SparkReadOptions.BRANCH);
+      scanOptions.remove(SparkReadOptions.TAG);
 
       return new CaseInsensitiveStringMap(scanOptions);
     }

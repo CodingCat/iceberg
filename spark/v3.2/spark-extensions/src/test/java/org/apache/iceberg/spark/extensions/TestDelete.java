@@ -977,9 +977,10 @@ public abstract class TestDelete extends SparkRowLevelOperationsTestBase {
     createAndInitPartitionedTable();
 
     append(tableName, new Employee(1, "hr"), new Employee(3, "hr"));
+    createBranchIfNeeded();
     append(new Employee(1, "hardware"), new Employee(2, "hardware"));
 
-    Dataset<Row> query = spark.sql("SELECT * FROM " + tableName + " WHERE id = 1");
+    Dataset<Row> query = spark.sql("SELECT * FROM " + commitTarget() + " WHERE id = 1");
     query.createOrReplaceTempView("tmp");
 
     spark.sql("CACHE TABLE tmp");
@@ -989,12 +990,12 @@ public abstract class TestDelete extends SparkRowLevelOperationsTestBase {
         ImmutableList.of(row(1, "hardware"), row(1, "hr")),
         sql("SELECT * FROM tmp ORDER BY id, dep"));
 
-    sql("DELETE FROM %s WHERE id = 1", tableName);
+    sql("DELETE FROM %s WHERE id = 1", commitTarget());
 
     Table table = validationCatalog.loadTable(tableIdent);
     Assert.assertEquals("Should have 3 snapshots", 3, Iterables.size(table.snapshots()));
 
-    Snapshot currentSnapshot = table.currentSnapshot();
+    Snapshot currentSnapshot = SnapshotUtil.latestSnapshot(table, branch);
     if (mode(table) == COPY_ON_WRITE) {
       validateCopyOnWrite(currentSnapshot, "2", "2", "2");
     } else {
@@ -1003,7 +1004,7 @@ public abstract class TestDelete extends SparkRowLevelOperationsTestBase {
     assertEquals(
         "Should have expected rows",
         ImmutableList.of(row(2, "hardware"), row(3, "hr")),
-        sql("SELECT * FROM %s ORDER BY id, dep", tableName));
+        sql("SELECT * FROM %s ORDER BY id, dep", commitTarget()));
 
     assertEquals(
         "Should refresh the relation cache",
@@ -1019,28 +1020,29 @@ public abstract class TestDelete extends SparkRowLevelOperationsTestBase {
 
     // write an unpartitioned file
     append(tableName, "{ \"id\": 1, \"dep\": \"hr\", \"category\": \"c1\"}");
+    createBranchIfNeeded();
 
     // write a file partitioned by dep
     sql("ALTER TABLE %s ADD PARTITION FIELD dep", tableName);
     append(
-        tableName,
+        commitTarget(),
         "{ \"id\": 2, \"dep\": \"hr\", \"category\": \"c1\" }\n"
             + "{ \"id\": 3, \"dep\": \"hr\", \"category\": \"c1\" }");
 
     // write a file partitioned by dep and category
     sql("ALTER TABLE %s ADD PARTITION FIELD category", tableName);
-    append(tableName, "{ \"id\": 5, \"dep\": \"hr\", \"category\": \"c1\"}");
+    append(commitTarget(), "{ \"id\": 5, \"dep\": \"hr\", \"category\": \"c1\"}");
 
     // write another file partitioned by dep
     sql("ALTER TABLE %s DROP PARTITION FIELD category", tableName);
-    append(tableName, "{ \"id\": 7, \"dep\": \"hr\", \"category\": \"c1\"}");
+    append(commitTarget(), "{ \"id\": 7, \"dep\": \"hr\", \"category\": \"c1\"}");
 
-    sql("DELETE FROM %s WHERE id IN (1, 3, 5, 7)", tableName);
+    sql("DELETE FROM %s WHERE id IN (1, 3, 5, 7)", commitTarget());
 
     Table table = validationCatalog.loadTable(tableIdent);
     Assert.assertEquals("Should have 5 snapshots", 5, Iterables.size(table.snapshots()));
 
-    Snapshot currentSnapshot = table.currentSnapshot();
+    Snapshot currentSnapshot = SnapshotUtil.latestSnapshot(table, branch);
     if (mode(table) == COPY_ON_WRITE) {
       validateCopyOnWrite(currentSnapshot, "3", "4", "1");
     } else {
@@ -1050,7 +1052,7 @@ public abstract class TestDelete extends SparkRowLevelOperationsTestBase {
     assertEquals(
         "Should have expected rows",
         ImmutableList.of(row(2, "hr", "c1")),
-        sql("SELECT * FROM %s ORDER BY id", tableName));
+        sql("SELECT * FROM %s ORDER BY id", selectTarget()));
   }
 
   // TODO: multiple stripes for ORC
@@ -1071,9 +1073,7 @@ public abstract class TestDelete extends SparkRowLevelOperationsTestBase {
   }
 
   protected void append(Employee... employees) throws NoSuchTableException {
-    List<Employee> input = Arrays.asList(employees);
-    Dataset<Row> inputDF = spark.createDataFrame(input, Employee.class);
-    inputDF.coalesce(1).writeTo(tableName).append();
+    append(commitTarget(), employees);
   }
 
   protected void append(String target, Employee... employees) throws NoSuchTableException {
