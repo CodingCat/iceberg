@@ -711,10 +711,7 @@ public class SparkCatalog extends BaseCatalog {
       return new SparkTable(table, snapshotIdAsOfTime, !cacheEnabled);
 
     } else if (branch != null) {
-      Snapshot branchSnapshot = table.snapshot(branch);
-      Preconditions.checkArgument(
-          branchSnapshot != null, "Cannot find snapshot associated with branch name: %s", branch);
-      return new SparkTable(table, branchSnapshot.snapshotId(), !cacheEnabled);
+      return new SparkTable(table, branch, !cacheEnabled);
 
     } else if (tag != null) {
       Snapshot tagSnapshot = table.snapshot(tag);

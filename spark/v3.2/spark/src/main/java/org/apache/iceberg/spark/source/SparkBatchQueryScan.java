@@ -68,7 +68,6 @@ class SparkBatchQueryScan extends SparkScan implements SupportsRuntimeFiltering 
   private final Long startSnapshotId;
   private final Long endSnapshotId;
   private final Long asOfTimestamp;
-  private final String branch;
   private final String tag;
   private final List<Expression> runtimeFilterExpressions;
 
@@ -91,7 +90,6 @@ class SparkBatchQueryScan extends SparkScan implements SupportsRuntimeFiltering 
     this.startSnapshotId = readConf.startSnapshotId();
     this.endSnapshotId = readConf.endSnapshotId();
     this.asOfTimestamp = readConf.asOfTimestamp();
-    this.branch = readConf.branch();
     this.tag = readConf.tag();
     this.runtimeFilterExpressions = Lists.newArrayList();
 
@@ -251,8 +249,8 @@ class SparkBatchQueryScan extends SparkScan implements SupportsRuntimeFiltering 
       Snapshot snapshot = table().snapshot(snapshotIdAsOfTime);
       return estimateStatistics(snapshot);
 
-    } else if (branch != null) {
-      Snapshot snapshot = table().snapshot(branch);
+    } else if (branch() != null) {
+      Snapshot snapshot = table().snapshot(branch());
       return estimateStatistics(snapshot);
 
     } else if (tag != null) {
@@ -278,6 +276,7 @@ class SparkBatchQueryScan extends SparkScan implements SupportsRuntimeFiltering 
 
     SparkBatchQueryScan that = (SparkBatchQueryScan) o;
     return table().name().equals(that.table().name())
+        && Objects.equals(branch(), that.branch())
         && readSchema().equals(that.readSchema())
         && // compare Spark schemas to ignore field ids
         filterExpressions().toString().equals(that.filterExpressions().toString())
@@ -286,7 +285,6 @@ class SparkBatchQueryScan extends SparkScan implements SupportsRuntimeFiltering 
         && Objects.equals(startSnapshotId, that.startSnapshotId)
         && Objects.equals(endSnapshotId, that.endSnapshotId)
         && Objects.equals(asOfTimestamp, that.asOfTimestamp)
-        && Objects.equals(branch, that.branch)
         && Objects.equals(tag, that.tag);
   }
 
@@ -294,6 +292,7 @@ class SparkBatchQueryScan extends SparkScan implements SupportsRuntimeFiltering 
   public int hashCode() {
     return Objects.hash(
         table().name(),
+        branch(),
         readSchema(),
         filterExpressions().toString(),
         runtimeFilterExpressions.toString(),
@@ -301,15 +300,15 @@ class SparkBatchQueryScan extends SparkScan implements SupportsRuntimeFiltering 
         startSnapshotId,
         endSnapshotId,
         asOfTimestamp,
-        branch,
         tag);
   }
 
   @Override
   public String toString() {
     return String.format(
-        "IcebergScan(table=%s, type=%s, filters=%s, runtimeFilters=%s, caseSensitive=%s)",
+        "IcebergScan(table=%s, branch=%s, type=%s, filters=%s, runtimeFilters=%s, caseSensitive=%s)",
         table(),
+        branch(),
         expectedSchema().asStruct(),
         filterExpressions(),
         runtimeFilterExpressions,

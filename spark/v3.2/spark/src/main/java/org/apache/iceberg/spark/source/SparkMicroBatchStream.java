@@ -67,6 +67,7 @@ public class SparkMicroBatchStream implements MicroBatchStream {
   private static final Logger LOG = LoggerFactory.getLogger(SparkMicroBatchStream.class);
 
   private final Table table;
+  private final String branch;
   private final boolean caseSensitive;
   private final String expectedSchema;
   private final Broadcast<Table> tableBroadcast;
@@ -86,6 +87,7 @@ public class SparkMicroBatchStream implements MicroBatchStream {
       Schema expectedSchema,
       String checkpointLocation) {
     this.table = table;
+    this.branch = readConf.branch();
     this.caseSensitive = readConf.caseSensitive();
     this.expectedSchema = SchemaParser.toJson(expectedSchema);
     this.localityPreferred = readConf.localityEnabled();
@@ -163,6 +165,7 @@ public class SparkMicroBatchStream implements MicroBatchStream {
                     new SparkInputPartition(
                         combinedScanTasks.get(index),
                         tableBroadcast,
+                        branch,
                         expectedSchema,
                         caseSensitive,
                         localityPreferred));

@@ -38,6 +38,7 @@ import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.apache.iceberg.spark.SparkReadConf;
+import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.iceberg.util.TableScanUtil;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.expressions.Expressions;
@@ -202,7 +203,7 @@ class SparkCopyOnWriteScan extends SparkScan implements SupportsRuntimeFiltering
   }
 
   private Long currentSnapshotId() {
-    Snapshot currentSnapshot = table().currentSnapshot();
+    Snapshot currentSnapshot = SnapshotUtil.latestSnapshot(table(), branch());
     return currentSnapshot != null ? currentSnapshot.snapshotId() : null;
   }
 }

@@ -39,8 +39,8 @@ class RowDataReader extends BaseRowReader<FileScanTask> {
   private static final Logger LOG = LoggerFactory.getLogger(RowDataReader.class);
 
   RowDataReader(
-      ScanTaskGroup<FileScanTask> task, Table table, Schema expectedSchema, boolean caseSensitive) {
-    super(table, task, expectedSchema, caseSensitive);
+      ScanTaskGroup<FileScanTask> task, Table table, Schema tableSchema, Schema expectedSchema, boolean caseSensitive) {
+    super(table, task, tableSchema, expectedSchema, caseSensitive);
   }
 
   @Override

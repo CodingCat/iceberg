@@ -40,6 +40,7 @@ class SparkCopyOnWriteOperation implements RowLevelOperation {
 
   private final SparkSession spark;
   private final Table table;
+  private final String branch;
   private final Command command;
   private final IsolationLevel isolationLevel;
 
@@ -49,9 +50,10 @@ class SparkCopyOnWriteOperation implements RowLevelOperation {
   private WriteBuilder lazyWriteBuilder;
 
   SparkCopyOnWriteOperation(
-      SparkSession spark, Table table, RowLevelOperationInfo info, IsolationLevel isolationLevel) {
+      SparkSession spark, Table table, String branch, RowLevelOperationInfo info, IsolationLevel isolationLevel) {
     this.spark = spark;
     this.table = table;
+    this.branch = branch;
     this.command = info.command();
     this.isolationLevel = isolationLevel;
   }
@@ -65,7 +67,7 @@ class SparkCopyOnWriteOperation implements RowLevelOperation {
   public ScanBuilder newScanBuilder(CaseInsensitiveStringMap options) {
     if (lazyScanBuilder == null) {
       lazyScanBuilder =
-          new SparkScanBuilder(spark, table, options) {
+          new SparkScanBuilder(spark, table, branch, options) {
             @Override
             public Scan build() {
               Scan scan = super.buildCopyOnWriteScan();
@@ -82,7 +84,7 @@ class SparkCopyOnWriteOperation implements RowLevelOperation {
   public WriteBuilder newWriteBuilder(ExtendedLogicalWriteInfo info) {
     if (lazyWriteBuilder == null) {
       Preconditions.checkState(configuredScan != null, "Write must be configured after scan");
-      SparkWriteBuilder writeBuilder = new SparkWriteBuilder(spark, table, info);
+      SparkWriteBuilder writeBuilder = new SparkWriteBuilder(spark, table, branch, info);
       lazyWriteBuilder = writeBuilder.overwriteFiles(configuredScan, command, isolationLevel);
     }
 

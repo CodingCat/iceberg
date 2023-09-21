@@ -56,13 +56,19 @@ import org.apache.spark.sql.SparkSession;
 public class SparkWriteConf {
 
   private final Table table;
+  private final String branch;
   private final RuntimeConfig sessionConf;
   private final Map<String, String> writeOptions;
   private final SparkConfParser confParser;
 
   public SparkWriteConf(SparkSession spark, Table table, Map<String, String> writeOptions) {
+    this(spark, table, null, writeOptions);
+  }
+
+  public SparkWriteConf(SparkSession spark, Table table, String branch, Map<String, String> writeOptions) {
     this.table = table;
     this.sessionConf = spark.conf();
+    this.branch = branch;
     this.writeOptions = writeOptions;
     this.confParser = new SparkConfParser(spark, table, writeOptions);
   }
@@ -329,5 +335,9 @@ public class SparkWriteConf {
     String isolationLevelName =
         confParser.stringConf().option(SparkWriteOptions.ISOLATION_LEVEL).parseOptional();
     return isolationLevelName != null ? IsolationLevel.fromName(isolationLevelName) : null;
+  }
+
+  public String branch() {
+    return branch;
   }
 }

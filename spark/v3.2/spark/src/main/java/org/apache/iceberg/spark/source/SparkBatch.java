@@ -40,6 +40,7 @@ class SparkBatch implements Batch {
 
   private final JavaSparkContext sparkContext;
   private final Table table;
+  private final String branch;
   private final SparkReadConf readConf;
   private final List<CombinedScanTask> taskGroups;
   private final Schema expectedSchema;
@@ -56,6 +57,7 @@ class SparkBatch implements Batch {
       int scanHashCode) {
     this.sparkContext = sparkContext;
     this.table = table;
+    this.branch = readConf.branch();
     this.readConf = readConf;
     this.taskGroups = taskGroups;
     this.expectedSchema = expectedSchema;
@@ -82,6 +84,7 @@ class SparkBatch implements Batch {
                     new SparkInputPartition(
                         taskGroups.get(index),
                         tableBroadcast,
+                        branch,
                         expectedSchemaString,
                         caseSensitive,
                         localityEnabled));

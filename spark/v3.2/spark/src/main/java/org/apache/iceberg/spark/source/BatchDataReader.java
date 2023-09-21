@@ -28,6 +28,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
+import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.spark.rdd.InputFileBlockHolder;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 import org.slf4j.Logger;
@@ -39,10 +40,11 @@ class BatchDataReader extends BaseBatchReader<FileScanTask> {
   BatchDataReader(
       ScanTaskGroup<FileScanTask> task,
       Table table,
+      Schema tableSchema,
       Schema expectedSchema,
       boolean caseSensitive,
       int size) {
-    super(table, task, expectedSchema, caseSensitive, size);
+    super(table, task, tableSchema, expectedSchema, caseSensitive, size);
   }
 
   @Override

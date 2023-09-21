@@ -28,6 +28,7 @@ import org.apache.iceberg.BaseMetadataTable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFiles;
+import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
@@ -167,9 +168,15 @@ public class SparkTable
     return icebergTable.toString();
   }
 
+  public SparkTable copyWithBranch(String targetBranch) {
+    return new SparkTable(icebergTable, targetBranch, refreshEagerly);
+  }
+
   private Schema snapshotSchema() {
     if (icebergTable instanceof BaseMetadataTable) {
       return icebergTable.schema();
+    } else if (branch != null) {
+      return SnapshotUtil.schemaFor(icebergTable, branch);
     } else {
       return SnapshotUtil.schemaFor(icebergTable, snapshotId, null);
     }
@@ -256,8 +263,10 @@ public class SparkTable
       icebergTable.refresh();
     }
 
-    CaseInsensitiveStringMap scanOptions = addSnapshotId(options, snapshotId);
-    return new SparkScanBuilder(sparkSession(), icebergTable, snapshotSchema(), scanOptions);
+    CaseInsensitiveStringMap scanOptions =
+        branch != null ? options : addSnapshotId(options, snapshotId);
+    return new SparkScanBuilder(
+        sparkSession(), icebergTable, branch, snapshotSchema(), scanOptions);
   }
 
   @Override
@@ -265,12 +274,12 @@ public class SparkTable
     Preconditions.checkArgument(
         snapshotId == null, "Cannot write to table at a specific snapshot: %s", snapshotId);
 
-    return new SparkWriteBuilder(sparkSession(), icebergTable, info);
+    return new SparkWriteBuilder(sparkSession(), icebergTable, branch, info);
   }
 
   @Override
   public RowLevelOperationBuilder newRowLevelOperationBuilder(RowLevelOperationInfo info) {
-    return new SparkRowLevelOperationBuilder(sparkSession(), icebergTable, info);
+    return new SparkRowLevelOperationBuilder(sparkSession(), icebergTable, branch, info);
   }
 
   @Override
@@ -308,10 +317,14 @@ public class SparkTable
             .includeColumnStats()
             .ignoreResiduals();
 
+    if (branch != null) {
+      scan.useRef(branch);
+    }
+
     try (CloseableIterable<FileScanTask> tasks = scan.planFiles()) {
       Map<Integer, Evaluator> evaluators = Maps.newHashMap();
       StrictMetricsEvaluator metricsEvaluator =
-          new StrictMetricsEvaluator(table().schema(), deleteExpr);
+          new StrictMetricsEvaluator(SnapshotUtil.schemaFor(table(), branch), deleteExpr);
 
       return Iterables.all(
           tasks,
@@ -347,6 +360,10 @@ public class SparkTable
             .newDelete()
             .set("spark.app.id", sparkSession().sparkContext().applicationId())
             .deleteFromRowFilter(deleteExpr);
+
+    if (branch != null) {
+      deleteFiles.toBranch(branch);
+    }
 
     if (!CommitMetadata.commitProperties().isEmpty()) {
       CommitMetadata.commitProperties().forEach(deleteFiles::set);

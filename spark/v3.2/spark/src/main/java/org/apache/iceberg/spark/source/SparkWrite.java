@@ -90,6 +90,7 @@ abstract class SparkWrite implements Write, RequiresDistributionAndOrdering {
   private final String applicationId;
   private final boolean wapEnabled;
   private final String wapId;
+  private final String branch;
   private final int outputSpecId;
   private final long targetFileSize;
   private final Schema writeSchema;
@@ -119,6 +120,7 @@ abstract class SparkWrite implements Write, RequiresDistributionAndOrdering {
     this.applicationId = applicationId;
     this.wapEnabled = writeConf.wapEnabled();
     this.wapId = writeConf.wapId();
+    this.branch = writeConf.branch();
     this.targetFileSize = writeConf.targetDataFileSize();
     this.writeSchema = writeSchema;
     this.dsSchema = dsSchema;
@@ -202,6 +204,10 @@ abstract class SparkWrite implements Write, RequiresDistributionAndOrdering {
       // stage the changes without changing the current snapshot
       operation.set(SnapshotSummary.STAGED_WAP_ID_PROP, wapId);
       operation.stageOnly();
+    }
+
+    if (branch != null) {
+      operation.toBranch(branch);
     }
 
     try {

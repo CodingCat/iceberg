@@ -77,17 +77,21 @@ public class SparkScanBuilder
   private Filter[] pushedFilters = NO_FILTERS;
 
   SparkScanBuilder(
-      SparkSession spark, Table table, Schema schema, CaseInsensitiveStringMap options) {
+      SparkSession spark, Table table, String branch, Schema schema, CaseInsensitiveStringMap options) {
     this.spark = spark;
     this.table = table;
     this.schema = schema;
     this.options = options;
-    this.readConf = new SparkReadConf(spark, table, options);
+    this.readConf = new SparkReadConf(spark, table, branch, options);
     this.caseSensitive = readConf.caseSensitive();
   }
 
-  SparkScanBuilder(SparkSession spark, Table table, CaseInsensitiveStringMap options) {
-    this(spark, table, table.schema(), options);
+  SparkScanBuilder(SparkSession spark, Table table, String branch, CaseInsensitiveStringMap options) {
+    this(spark, table, SnapshotUtil.schemaFor(table, branch), options);
+  }
+
+  SparkScanBuilder(SparkSession spark, Table table, Schema schema, CaseInsensitiveStringMap options) {
+    this(spark, table, null, schema, options);
   }
 
   private Expression filterExpression() {
@@ -350,14 +354,10 @@ public class SparkScanBuilder
 
   public Scan buildMergeOnReadScan() {
     Preconditions.checkArgument(
-        readConf.snapshotId() == null
-            && readConf.asOfTimestamp() == null
-            && readConf.branch() == null
-            && readConf.tag() == null,
-        "Cannot set time travel options %s, %s, %s and %s for row-level command scans",
+        readConf.snapshotId() == null && readConf.asOfTimestamp() == null && readConf.tag() == null,
+        "Cannot set time travel options %s, %s, %s for row-level command scans",
         SparkReadOptions.SNAPSHOT_ID,
         SparkReadOptions.AS_OF_TIMESTAMP,
-        SparkReadOptions.BRANCH,
         SparkReadOptions.TAG);
 
     Preconditions.checkArgument(
@@ -366,7 +366,7 @@ public class SparkScanBuilder
         SparkReadOptions.START_SNAPSHOT_ID,
         SparkReadOptions.END_SNAPSHOT_ID);
 
-    Snapshot snapshot = table.currentSnapshot();
+    Snapshot snapshot = SnapshotUtil.latestSnapshot(table, readConf.branch());
 
     if (snapshot == null) {
       return new SparkBatchQueryScan(
@@ -378,7 +378,8 @@ public class SparkScanBuilder
 
     CaseInsensitiveStringMap adjustedOptions =
         Spark3Util.setOption(SparkReadOptions.SNAPSHOT_ID, Long.toString(snapshotId), options);
-    SparkReadConf adjustedReadConf = new SparkReadConf(spark, table, adjustedOptions);
+    SparkReadConf adjustedReadConf =
+        new SparkReadConf(spark, table, readConf.branch(), adjustedOptions);
 
     Schema expectedSchema = schemaWithMetadataColumns();
 
@@ -397,7 +398,7 @@ public class SparkScanBuilder
   }
 
   public Scan buildCopyOnWriteScan() {
-    Snapshot snapshot = table.currentSnapshot();
+    Snapshot snapshot = SnapshotUtil.latestSnapshot(table, readConf.branch());
 
     if (snapshot == null) {
       return new SparkCopyOnWriteScan(
